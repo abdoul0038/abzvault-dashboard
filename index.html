@@ -321,33 +321,21 @@
   </div>
 
   <div class="panel" id="panel-berichten">
-    <div class="section-title">Reactiesjablonen</div>
-    <p class="note" style="margin-bottom:14px;">Kopieer, pas de details (naam/bedrag) even aan, en plak in Vinted.</p>
-
-    <div class="out-box" style="margin-bottom:14px;">
-      <p class="lbl">Bod is te laag</p>
-      <p class="val">Bedankt voor je bod! Dit ligt helaas te ver onder mijn minimum. Ik kan tot [bedrag] gaan — laat het weten als dat voor jou werkt.</p>
-      <button class="secondary" onclick="copyTemplate(this)">Kopieer</button>
-    </div>
-
-    <div class="out-box" style="margin-bottom:14px;">
-      <p class="lbl">Vraag over verzendtijd</p>
-      <p class="val">Ik verstuur binnen 1-2 werkdagen na aankoop, met Track & Trace zodat je alles kunt volgen. Zodra het onderweg is krijg je automatisch een update.</p>
-      <button class="secondary" onclick="copyTemplate(this)">Kopieer</button>
-    </div>
-
-    <div class="out-box" style="margin-bottom:14px;">
-      <p class="lbl">Vraag om bundelkorting</p>
-      <p class="val">Leuk dat je meerdere items overweegt! Bij 2 of meer artikelen samen geef ik graag 10% korting op het totaal — stuur maar door welke items je op het oog hebt, dan pas ik de prijs aan.</p>
-      <button class="secondary" onclick="copyTemplate(this)">Kopieer</button>
-    </div>
-
-    <div class="out-box">
-      <p class="lbl">Item is nog beschikbaar?</p>
-      <p class="val">Ja, nog gewoon te koop! Laat het weten als je 'm wilt en dan zet ik 'm apart voor je.</p>
-      <button class="secondary" onclick="copyTemplate(this)">Kopieer</button>
+    <div class="section-title" style="margin-top:0;">Reactiesjablonen</div>
+    <p class="note" style="margin-bottom:14px;">Kopieer, pas de details (naam/bedrag) even aan, en plak in Vinted. Titel en tekst zijn direct te bewerken.</p>
+    <div id="berichten-list"></div>
+    <div class="row-actions" style="margin-bottom:6px;">
+      <button class="secondary" onclick="addTemplate('berichten')">+ Nieuw sjabloon</button>
     </div>
     <p class="note" id="t-copied" style="margin-top:10px;"></p>
+
+    <div class="section-title">Klantvragen (FAQ)</div>
+    <p class="note" style="margin-bottom:14px;">Veelgestelde vragen — maat, materiaal, verzendtijd — met één klik te kopiëren en net zo bewerkbaar.</p>
+    <div id="faq-list"></div>
+    <div class="row-actions" style="margin-bottom:6px;">
+      <button class="secondary" onclick="addTemplate('faq')">+ Nieuwe FAQ</button>
+    </div>
+    <p class="note" id="faq-copied" style="margin-top:10px;"></p>
   </div>
 
   <div class="panel" id="panel-schema">
@@ -388,6 +376,21 @@ let growthChart = null;
 
 const STORE_PREFIX = 'abzvault_';
 
+const TEMPLATE_DEFAULTS = {
+  berichten: [
+    { id: 'tb1', titel: 'Bod is te laag', tekst: 'Bedankt voor je bod! Dit ligt helaas te ver onder mijn minimum. Ik kan tot [bedrag] gaan — laat het weten als dat voor jou werkt.' },
+    { id: 'tb2', titel: 'Vraag over verzendtijd', tekst: 'Ik verstuur binnen 1-2 werkdagen na aankoop, met Track & Trace zodat je alles kunt volgen. Zodra het onderweg is krijg je automatisch een update.' },
+    { id: 'tb3', titel: 'Vraag om bundelkorting', tekst: 'Leuk dat je meerdere items overweegt! Bij 2 of meer artikelen samen geef ik graag 10% korting op het totaal — stuur maar door welke items je op het oog hebt, dan pas ik de prijs aan.' },
+    { id: 'tb4', titel: 'Item is nog beschikbaar?', tekst: "Ja, nog gewoon te koop! Laat het weten als je 'm wilt en dan zet ik 'm apart voor je." }
+  ],
+  faq: [
+    { id: 'tf1', titel: 'Welke maat/lengte is dit?', tekst: 'De maat/lengte staat in de titel en beschrijving vermeld. Twijfel je? Stuur je gewenste maat door, dan kijk ik wat het beste past.' },
+    { id: 'tf2', titel: 'Van welk materiaal is dit gemaakt?', tekst: 'Dit is 316L RVS (roestvrij staal) — waterproof, verkleurt niet en hypoallergeen. Perfect voor dagelijks gebruik.' },
+    { id: 'tf3', titel: 'Hoe lang duurt de verzending?', tekst: 'Ik verstuur binnen 1-2 werkdagen na aankoop, met Track & Trace zodat je alles kunt volgen.' }
+  ]
+};
+let templateData = { berichten: [], faq: [] };
+
 async function saveMerk() {
   try { localStorage.setItem(STORE_PREFIX + 'merknaam', document.getElementById('merknaam').value); } catch (e) {}
 }
@@ -405,6 +408,8 @@ async function load() {
     const b = localStorage.getItem(STORE_PREFIX + 'braindump');
     braindump = b ? JSON.parse(b) : [];
   } catch (e) { braindump = []; }
+  loadTemplateList('berichten');
+  loadTemplateList('faq');
   try {
     const m = localStorage.getItem(STORE_PREFIX + 'merknaam');
     if (m && document.getElementById('merknaam')) document.getElementById('merknaam').value = m;
@@ -423,6 +428,15 @@ async function saveSales() {
 async function saveBraindump() {
   try { localStorage.setItem(STORE_PREFIX + 'braindump', JSON.stringify(braindump)); } catch (e) {}
 }
+function loadTemplateList(name) {
+  try {
+    const raw = localStorage.getItem(STORE_PREFIX + name);
+    templateData[name] = raw ? JSON.parse(raw) : TEMPLATE_DEFAULTS[name].map(t => ({ ...t }));
+  } catch (e) { templateData[name] = TEMPLATE_DEFAULTS[name].map(t => ({ ...t })); }
+}
+function saveTemplateList(name) {
+  try { localStorage.setItem(STORE_PREFIX + name, JSON.stringify(templateData[name])); } catch (e) {}
+}
 
 function fmt(n) { return '€' + (Math.round(n * 100) / 100).toFixed(2); }
 
@@ -434,6 +448,8 @@ function render() {
   renderVoorraad();
   renderVerkopen();
   renderDashboard();
+  renderTemplateList('berichten');
+  renderTemplateList('faq');
   try { checkOrderReminders(); } catch (e) {}
 }
 
@@ -1160,12 +1176,25 @@ function calcPrijs() {
   document.getElementById('p-advies').textContent = fmt(advies);
 }
 
-function copyTemplate(btn) {
-  const text = btn.previousElementSibling.textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    document.getElementById('t-copied').textContent = 'Gekopieerd';
-    setTimeout(() => { document.getElementById('t-copied').textContent = ''; }, 1500);
-  });
+function renderTemplateList(name) {
+  const el = document.getElementById(name + '-list');
+  if (!el) return;
+  const items = templateData[name];
+  if (items.length === 0) { el.innerHTML = '<p class="note" style="margin-bottom:14px;">Nog geen sjablonen — voeg er hieronder een toe.</p>'; return; }
+  el.innerHTML = items.map(item => `
+    <div class="out-box" style="margin-bottom:14px;">
+      <input data-tpl="${name}" data-id="${item.id}" data-field="titel" value="${item.titel.replace(/"/g, '&quot;')}" style="background:transparent; border:none; padding:0; font-size:12px; font-weight:600; color:#9a958c; margin-bottom:8px;" />
+      <textarea data-tpl="${name}" data-id="${item.id}" data-field="tekst" rows="3" style="margin-bottom:10px;">${item.tekst}</textarea>
+      <div class="row-actions">
+        <button class="secondary tpl-copy" data-tpl="${name}" data-id="${item.id}">Kopieer</button>
+        <button class="del tpl-del" data-tpl="${name}" data-id="${item.id}">verwijder</button>
+      </div>
+    </div>`).join('');
+}
+function addTemplate(name) {
+  templateData[name].push({ id: name[0] + Date.now(), titel: 'Nieuw sjabloon', tekst: '' });
+  saveTemplateList(name);
+  renderTemplateList(name);
 }
 
 function defaultTitel(p) {
@@ -1215,9 +1244,14 @@ function renderListingCards() {
 }
 
 document.addEventListener('input', function(e) {
-  if (e.target && e.target.dataset && e.target.dataset.field && e.target.tagName === 'TEXTAREA') {
+  if (e.target && e.target.dataset && e.target.dataset.field && e.target.tagName === 'TEXTAREA' && !e.target.dataset.tpl) {
     const p = products.find(pp => pp.id === e.target.dataset.id);
     if (p) { p[e.target.dataset.field] = e.target.value; saveProducts(); }
+  }
+  if (e.target && e.target.dataset && e.target.dataset.tpl && e.target.dataset.field) {
+    const list = templateData[e.target.dataset.tpl];
+    const item = list && list.find(t => t.id === e.target.dataset.id);
+    if (item) { item[e.target.dataset.field] = e.target.value; saveTemplateList(e.target.dataset.tpl); }
   }
 });
 
@@ -1230,6 +1264,21 @@ document.addEventListener('click', function(e) {
       const msg = document.querySelector(`.copied-msg[data-id="${p.id}"]`);
       if (msg) { msg.textContent = 'Gekopieerd'; setTimeout(() => { msg.textContent = ''; }, 1500); }
     });
+  }
+  if (e.target && e.target.classList && e.target.classList.contains('tpl-copy')) {
+    const tpl = e.target.dataset.tpl;
+    const item = templateData[tpl] && templateData[tpl].find(t => t.id === e.target.dataset.id);
+    if (!item) return;
+    navigator.clipboard.writeText(item.tekst).then(() => {
+      const msg = document.getElementById(tpl === 'faq' ? 'faq-copied' : 't-copied');
+      if (msg) { msg.textContent = 'Gekopieerd'; setTimeout(() => { msg.textContent = ''; }, 1500); }
+    });
+  }
+  if (e.target && e.target.classList && e.target.classList.contains('tpl-del')) {
+    const tpl = e.target.dataset.tpl;
+    templateData[tpl] = templateData[tpl].filter(t => t.id !== e.target.dataset.id);
+    saveTemplateList(tpl);
+    renderTemplateList(tpl);
   }
 });
 
