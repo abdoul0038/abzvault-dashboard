@@ -181,6 +181,7 @@
   <main class="content">
     <p class="sub">Voorraad, verkopen, prijzen en listingteksten op één plek. Data blijft bewaard tussen sessies.</p>
     <div class="panel active" id="panel-dashboard">
+    <div id="seasonal-tip"></div>
     <div class="section-title" style="margin-top:0;">Winstdoel deze maand</div>
     <div class="box">
       <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
@@ -192,6 +193,8 @@
       </div>
       <div id="doel-status" style="font-size:12px; color:#888; margin-top:6px;"></div>
     </div>
+    <div class="section-title">Maandvergelijking</div>
+    <div id="maand-vergelijking" class="box"></div>
     <div class="cards">
       <div class="card"><div class="label">Producten</div><div class="value" id="d-producten">0</div></div>
       <div class="card"><div class="label">Voorraadwaarde (inkoop)</div><div class="value" id="d-waarde">€0</div></div>
@@ -213,8 +216,14 @@
     <div class="section-title">Winst per product (per geïnvesteerde euro)</div>
     <div id="winst-analyse" class="box"></div>
 
+    <div class="section-title">Break-even per product</div>
+    <div id="break-even" class="box"></div>
+
     <div class="section-title">Jouw beste verkoopmomenten</div>
     <div id="besteschema" class="box"></div>
+
+    <div class="section-title">Countdown feestdagen</div>
+    <div id="feestdagen-countdown" class="box"></div>
 
     <div class="section-title">Voorraad-waarschuwingen</div>
     <div id="voorraad-alarm" class="box"></div>
@@ -243,6 +252,19 @@
     </div>
     <div class="section-title">Laagste voorraad</div>
     <table><thead><tr><th>Product</th><th>Resterend</th></tr></thead><tbody id="d-laag"></tbody></table>
+
+    <div class="section-title">Braindump</div>
+    <div class="box">
+      <div class="field" style="margin-bottom:10px;">
+        <label>Snel een idee of gedachte kwijt?</label>
+        <textarea id="braindump-input" rows="2" placeholder="Typ of spreek een losse gedachte in..."></textarea>
+      </div>
+      <div class="row-actions" style="margin-bottom:14px;">
+        <button onclick="addBraindump()">Toevoegen</button>
+        <button class="secondary" id="braindump-voice-btn" onclick="startBraindumpVoice()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px; margin-right:6px;"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg>Spreek in</button>
+      </div>
+      <div id="braindump-list"></div>
+    </div>
   </div>
 
   <div class="panel" id="panel-voorraad">
@@ -361,6 +383,7 @@ window.addEventListener('unhandledrejection', function(e) {
 <script>
 let products = [];
 let sales = [];
+let braindump = [];
 let growthChart = null;
 
 const STORE_PREFIX = 'abzvault_';
@@ -379,6 +402,10 @@ async function load() {
     sales = s ? JSON.parse(s) : [];
   } catch (e) { sales = []; }
   try {
+    const b = localStorage.getItem(STORE_PREFIX + 'braindump');
+    braindump = b ? JSON.parse(b) : [];
+  } catch (e) { braindump = []; }
+  try {
     const m = localStorage.getItem(STORE_PREFIX + 'merknaam');
     if (m && document.getElementById('merknaam')) document.getElementById('merknaam').value = m;
   } catch (e) {}
@@ -392,6 +419,9 @@ async function saveProducts() {
 }
 async function saveSales() {
   try { localStorage.setItem(STORE_PREFIX + 'sales', JSON.stringify(sales)); } catch (e) {}
+}
+async function saveBraindump() {
+  try { localStorage.setItem(STORE_PREFIX + 'braindump', JSON.stringify(braindump)); } catch (e) {}
 }
 
 function fmt(n) { return '€' + (Math.round(n * 100) / 100).toFixed(2); }
@@ -436,7 +466,7 @@ function renderVoorraad() {
         <option value="Verkocht" ${status === 'Verkocht' ? 'selected' : ''}>Verkocht</option>
       </select></td>
       <td style="white-space:nowrap;">${timeSince(p.laatstGepost)}<br/><button class="secondary" style="padding:3px 8px; font-size:11px; margin-top:4px;" onclick="markReposted('${p.id}')">Nu (re)post</button></td>
-      <td><button class="del" onclick="delProduct('${p.id}')">verwijder</button></td>`;
+      <td><button class="secondary" style="padding:3px 8px; font-size:11px; margin-right:4px;" onclick="duplicateProduct('${p.id}')">dupliceer</button><button class="del" onclick="delProduct('${p.id}')">verwijder</button></td>`;
     body.appendChild(tr);
   });
   const sel = document.getElementById('s-product');
@@ -455,6 +485,21 @@ function setStatus(id, status) {
 function markReposted(id) {
   const p = products.find(pp => pp.id === id);
   if (p) { p.laatstGepost = Date.now(); saveProducts(); renderVoorraad(); }
+}
+
+function duplicateProduct(id) {
+  const p = products.find(pp => pp.id === id);
+  if (!p) return;
+  document.getElementById('v-naam').value = p.naam;
+  document.getElementById('v-kenmerk').value = p.kenmerk;
+  document.getElementById('v-leverancier').value = p.leverancier || '';
+  document.getElementById('v-aantal').value = p.aantal;
+  document.getElementById('v-inkoop').value = p.inkoop;
+  document.getElementById('v-verkoop').value = p.verkoop;
+  const kenmerkInput = document.getElementById('v-kenmerk');
+  kenmerkInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  kenmerkInput.focus();
+  kenmerkInput.select();
 }
 
 function renderVerkopen() {
@@ -506,10 +551,15 @@ function renderDashboard() {
   renderBtw();
   renderGrowthChart();
   renderDoel();
+  renderMaandVergelijking();
   renderWinstAnalyse();
+  renderBreakEven();
   renderBesteschema();
+  renderFeestdagenCountdown();
   renderVoorraadAlarm();
   renderRepriceSuggesties();
+  renderSeasonalTip();
+  renderBraindump();
 }
 
 function winstVoorSale(s) {
@@ -621,6 +671,150 @@ function renderRepriceSuggesties() {
 function pasPrijsToe(id, nieuwePrijs) {
   const p = products.find(pp => pp.id === id);
   if (p) { p.verkoop = nieuwePrijs; saveProducts(); render(); }
+}
+
+function renderSeasonalTip() {
+  const el = document.getElementById('seasonal-tip');
+  if (!el) return;
+  const maand = new Date().getMonth();
+  if (maand < 9) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="out-box" style="margin-bottom:20px; border-color:#d4af37;">
+    <p class="lbl" style="color:#d4af37; font-weight:600;">🎁 Cadeauseizoen</p>
+    <p class="val" style="margin:0;">Oktober t/m december kopen mensen vaker cadeaus — benadruk in je titels/beschrijvingen dat het een leuk cadeau-idee is, noem cadeauverpakking als optie, en post iets vaker richting het weekend.</p>
+  </div>`;
+}
+
+function renderMaandVergelijking() {
+  const el = document.getElementById('maand-vergelijking');
+  if (!el) return;
+  const now = new Date();
+  const maandStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const vorigeMaandStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  let dezeMaand = 0, vorigeMaand = 0;
+  sales.forEach(s => {
+    const d = new Date(s.datum);
+    const w = winstVoorSale(s);
+    if (d >= maandStart) dezeMaand += w;
+    else if (d >= vorigeMaandStart) vorigeMaand += w;
+  });
+  const verschil = dezeMaand - vorigeMaand;
+  const pct = vorigeMaand > 0 ? Math.round((verschil / vorigeMaand) * 100) : (dezeMaand > 0 ? 100 : 0);
+  const kleur = verschil >= 0 ? '#3fae5a' : '#e0554f';
+  const teken = verschil >= 0 ? '+' : '−';
+  el.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div><p class="note" style="margin:0 0 2px;">Deze maand</p><p style="margin:0; font-size:18px; font-weight:600;">${fmt(dezeMaand)}</p></div>
+      <div><p class="note" style="margin:0 0 2px;">Vorige maand</p><p style="margin:0; font-size:18px; font-weight:600; color:#9a958c;">${fmt(vorigeMaand)}</p></div>
+      <div><p class="note" style="margin:0 0 2px;">Verschil</p><p style="margin:0; font-size:18px; font-weight:600; color:${kleur};">${teken}${fmt(Math.abs(verschil))} (${teken}${Math.abs(pct)}%)</p></div>
+    </div>`;
+}
+
+function renderBreakEven() {
+  const el = document.getElementById('break-even');
+  if (!el) return;
+  const rijen = products.map(p => {
+    const marge = p.verkoop - p.inkoop;
+    const investering = p.inkoop * p.aantal;
+    const verkocht = verkochtAantal(p.id);
+    const breakEven = marge > 0 ? Math.ceil(investering / marge) : null;
+    return { naam: p.naam, verkocht, breakEven, behaald: breakEven !== null && verkocht >= breakEven };
+  }).filter(r => r.breakEven !== null);
+  if (rijen.length === 0) { el.innerHTML = '<p class="note" style="margin:0;">Nog geen producten om break-even voor te berekenen.</p>'; return; }
+  el.innerHTML = rijen.map(r => `
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+      <span style="font-size:13px; width:110px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.naam}</span>
+      <div style="flex:1; height:8px; background:#2a2a2c; border-radius:4px; overflow:hidden;"><div style="width:${Math.min(100, Math.round(r.verkocht / r.breakEven * 100))}%; height:100%; background:${r.behaald ? '#3fae5a' : '#d4af37'};"></div></div>
+      <span style="font-size:12px; width:120px; text-align:right; color:#aaa;">${r.behaald ? 'Break-even ✓' : r.verkocht + '/' + r.breakEven + ' stuks'}</span>
+    </div>`).join('');
+}
+
+function volgendeDatum(maand, dag) {
+  const nu = new Date();
+  const vandaag = new Date(nu.getFullYear(), nu.getMonth(), nu.getDate());
+  let d = new Date(nu.getFullYear(), maand, dag);
+  if (d < vandaag) d = new Date(nu.getFullYear() + 1, maand, dag);
+  return d;
+}
+function tweedeZondagMei(jaar) {
+  let d = new Date(jaar, 4, 1);
+  let zondagen = 0;
+  while (true) {
+    if (d.getDay() === 0) { zondagen++; if (zondagen === 2) break; }
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
+}
+function volgendeMoederdag() {
+  const nu = new Date();
+  const vandaag = new Date(nu.getFullYear(), nu.getMonth(), nu.getDate());
+  let datum = tweedeZondagMei(nu.getFullYear());
+  if (datum < vandaag) datum = tweedeZondagMei(nu.getFullYear() + 1);
+  return datum;
+}
+function dagenTot(datum) {
+  const nu = new Date();
+  const vandaag = new Date(nu.getFullYear(), nu.getMonth(), nu.getDate());
+  return Math.round((datum - vandaag) / 86400000);
+}
+function renderFeestdagenCountdown() {
+  const el = document.getElementById('feestdagen-countdown');
+  if (!el) return;
+  const feestdagen = [
+    { naam: 'Valentijnsdag', datum: volgendeDatum(1, 14) },
+    { naam: 'Moederdag', datum: volgendeMoederdag() },
+    { naam: 'Kerst', datum: volgendeDatum(11, 25) }
+  ].sort((a, b) => a.datum - b.datum);
+  el.innerHTML = feestdagen.map(f => `
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #2a2a2c;">
+      <span style="font-size:13px;">${f.naam}</span>
+      <span style="font-size:13px; font-weight:600; color:#d4af37;">nog ${dagenTot(f.datum)} dagen</span>
+    </div>`).join('');
+}
+
+function addBraindump() {
+  const input = document.getElementById('braindump-input');
+  const tekst = input.value.trim();
+  if (!tekst) return;
+  braindump.unshift({ id: 'b' + Date.now(), tekst, datum: Date.now() });
+  saveBraindump();
+  input.value = '';
+  renderBraindump();
+}
+function delBraindump(id) {
+  braindump = braindump.filter(b => b.id !== id);
+  saveBraindump();
+  renderBraindump();
+}
+function renderBraindump() {
+  const el = document.getElementById('braindump-list');
+  if (!el) return;
+  if (braindump.length === 0) { el.innerHTML = '<p class="note" style="margin:0;">Nog geen losse ideeën genoteerd.</p>'; return; }
+  el.innerHTML = braindump.map(b => `
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:1px solid #232325;">
+      <div>
+        <div style="font-size:11px; color:#726d64;">${new Date(b.datum).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+        <p style="margin:2px 0 0; font-size:13px;">${b.tekst}</p>
+      </div>
+      <button class="del" style="flex-shrink:0;" onclick="delBraindump('${b.id}')">×</button>
+    </div>`).join('');
+}
+let braindumpRecognition = null;
+function startBraindumpVoice() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const input = document.getElementById('braindump-input');
+  if (!SpeechRecognition) { input.placeholder = 'Spraakherkenning wordt niet ondersteund in deze browser.'; return; }
+  braindumpRecognition = new SpeechRecognition();
+  braindumpRecognition.lang = 'nl-NL';
+  braindumpRecognition.interimResults = false;
+  input.placeholder = 'Aan het luisteren...';
+  braindumpRecognition.onresult = function(e) {
+    const tekst = e.results[0][0].transcript;
+    input.value = (input.value ? input.value + ' ' : '') + tekst;
+    input.placeholder = 'Typ of spreek een losse gedachte in...';
+  };
+  braindumpRecognition.onerror = function() { input.placeholder = 'Kon je niet verstaan, probeer opnieuw.'; };
+  braindumpRecognition.onend = function() { if (input.placeholder === 'Aan het luisteren...') input.placeholder = 'Typ of spreek een losse gedachte in...'; };
+  braindumpRecognition.start();
 }
 
 let recognition = null;
