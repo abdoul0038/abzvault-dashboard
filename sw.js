@@ -1,8 +1,6 @@
-const CACHE_VERSION = 'abzvault-v1';
+const CACHE_VERSION = 'abzvault-v2';
 
 const APP_SHELL = [
-  '.',
-  'index.html',
   'manifest.webmanifest',
   'icons/icon-192.png',
   'icons/icon-512.png',
@@ -27,16 +25,34 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+
+  // Navigatie (index.html): altijd eerst het netwerk, zodat updates na een deploy
+  // meteen doorkomen. Alleen bij een offline netwerk valt dit terug op de cache.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const copy = response.clone();
+          caches.open(CACHE_VERSION).then(cache => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request).then(cached => cached || caches.match('.')))
+    );
+    return;
+  }
+
+  // Overige assets (libraries, iconen, manifest): meteen uit cache tonen als die er is
+  // (snel + offline-proof), maar op de achtergrond altijd verversen.
   event.respondWith(
     caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
+      const networkFetch = fetch(event.request).then(response => {
         if (response.ok) {
           const copy = response.clone();
           caches.open(CACHE_VERSION).then(cache => cache.put(event.request, copy));
         }
         return response;
       }).catch(() => cached);
+      return cached || networkFetch;
     })
   );
 });

@@ -41,7 +41,16 @@
   /* ===== Base ===== */
   * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
   html, body { height: 100%; }
-  body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    margin: 0;
+    color: var(--text);
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(212,175,55,0.05) 0%, transparent 45%),
+      radial-gradient(circle at 85% 30%, rgba(212,175,55,0.04) 0%, transparent 40%),
+      radial-gradient(circle at 50% 90%, rgba(212,175,55,0.03) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
 
   /* ===== App shell / sidebar navigation ===== */
   .app-shell { display: flex; min-height: 100vh; align-items: flex-start; }
@@ -92,8 +101,8 @@
 
   /* ===== Cards ===== */
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 12px; margin-bottom: 20px; max-width: var(--content-max); }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; transition: border-color 0.15s ease; }
-  .card:hover { border-color: #3a3a3c; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+  .card:hover { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(212,175,55,0.15), 0 4px 16px rgba(212,175,55,0.08); }
   .card .label { font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
   .card .value { font-size: 20px; font-weight: 600; color: var(--text); }
 
@@ -111,10 +120,21 @@
     outline: 2px solid var(--gold);
     outline-offset: 1px;
   }
-  button { cursor: pointer; background: var(--gold); color: #1a1a1c; font-weight: 600; border: none; transition: background 0.15s ease; }
-  button:hover { background: var(--gold-hover); }
+  button { cursor: pointer; background: var(--gold); color: #1a1a1c; font-weight: 600; border: none; transition: background 0.15s ease, box-shadow 0.15s ease; position: relative; overflow: hidden; }
+  button:hover { background: var(--gold-hover); box-shadow: 0 0 12px rgba(212,175,55,0.4); }
+  button::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -75%;
+    width: 50%; height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.35), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.5s ease;
+    pointer-events: none;
+  }
+  button:hover::after { left: 125%; }
   button.secondary { background: transparent; border: 1px solid #3a3a3c; color: var(--text); font-weight: 500; }
-  button.secondary:hover { background: var(--border-soft); }
+  button.secondary:hover { background: var(--border-soft); box-shadow: 0 0 10px rgba(212,175,55,0.15); }
 
   .formgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 10px; margin-bottom: 12px; align-items: end; }
   .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
@@ -160,6 +180,32 @@
     .content { padding: 20px 16px calc(76px + env(safe-area-inset-bottom)); }
   }
 
+  /* ===== Gamification: confetti, badges, greeting ===== */
+  #confetti-container { position: fixed; inset: 0; pointer-events: none; z-index: 10000; overflow: hidden; }
+  .confetti-piece {
+    position: absolute;
+    top: -20px;
+    width: 8px; height: 14px;
+    opacity: 0.9;
+    animation: confetti-fall linear forwards;
+  }
+  @keyframes confetti-fall {
+    to { transform: translateY(105vh) rotate(540deg); opacity: 0.4; }
+  }
+  .badge-pill {
+    display: inline-block;
+    background: rgba(212,175,55,0.12);
+    border: 1px solid rgba(212,175,55,0.35);
+    color: var(--gold);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin: 0 6px 6px 0;
+  }
+  .badge-pill.locked { background: transparent; border-color: var(--border); color: var(--text-faint); }
+  #begroeting .cursor-blink { animation: blink 1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
 </style>
 
 <div id="debug-error" style="display:none; position:fixed; top:0; left:0; right:0; background:#4a1a1a; color:#ffb4b4; padding:14px 20px; font-size:13px; font-family:monospace; z-index:99999; white-space:pre-wrap;"></div>
@@ -182,6 +228,8 @@
   <main class="content">
     <p class="sub">Voorraad, verkopen, prijzen en listingteksten op één plek. Data blijft bewaard tussen sessies.</p>
     <div class="panel active" id="panel-dashboard">
+    <h2 id="begroeting" style="font-size:19px; font-weight:600; margin:0 0 14px; min-height:26px;"></h2>
+    <div id="gamification-box" class="box"></div>
     <div id="seasonal-tip"></div>
     <div class="section-title" style="margin-top:0;">Winstdoel deze maand</div>
     <div class="box">
@@ -266,6 +314,18 @@
       </div>
       <div id="braindump-list"></div>
     </div>
+
+    <div class="section-title">Weekoverzicht delen</div>
+    <div class="box">
+      <p class="note" style="margin:0 0 12px;">Genereert een deelbare afbeelding met je belangrijkste weekstats.</p>
+      <div class="row-actions">
+        <button class="secondary" onclick="downloadWeekImage()">Download als afbeelding</button>
+        <button class="secondary" id="share-week-btn" onclick="shareWeekImage()" style="display:none;">Delen</button>
+      </div>
+      <canvas id="week-canvas" width="800" height="450" style="display:none;"></canvas>
+    </div>
+
+    <p class="note" id="daily-quote" style="text-align:center; margin:24px 0 0; font-style:italic;"></p>
   </div>
 
   <div class="panel" id="panel-voorraad">
@@ -292,12 +352,14 @@
       <div class="field"><label>Aantal</label><input id="s-aantal" type="number" value="1" /></div>
       <div class="field"><label>Verkoopprijs (€)</label><input id="s-prijs" type="number" step="0.01" /></div>
       <div class="field"><label>Datum</label><input id="s-datum" type="date" /></div>
+      <div class="field"><label>Koper (optioneel)</label><input id="s-koper" placeholder="Vinted-gebruikersnaam" /></div>
       <div class="field"><button onclick="addSale()">Loggen</button></div>
       <div class="field"><button class="secondary" id="voice-btn" onclick="startVoiceLog()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px; margin-right:6px;"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg>Spreek verkoop in</button></div>
+      <div class="field"><button class="secondary" id="geluid-btn" onclick="toggleGeluid()"></button></div>
     </div>
     <p class="note" id="voice-status"></p>
     <table>
-      <thead><tr><th>Datum</th><th>Product</th><th>Aantal</th><th>Prijs/stuk</th><th>Winst</th><th>Status</th><th>Tracking</th><th>Label</th><th></th></tr></thead>
+      <thead><tr><th>Datum</th><th>Product</th><th>Koper</th><th>Aantal</th><th>Prijs/stuk</th><th>Winst</th><th>Status</th><th>Tracking</th><th>Label</th><th></th></tr></thead>
       <tbody id="s-body"></tbody>
     </table>
   </div>
@@ -340,6 +402,8 @@
   </div>
 
   <div class="panel" id="panel-schema">
+    <div class="section-title" style="margin-top:0;">Volgend repost-moment</div>
+    <div id="repost-countdown" class="box"></div>
     <div class="section-title">Vinted postschema</div>
     <div class="schema-item"><div class="t">Lunchpiek — 11:45</div><div class="d">Repost/relist je beste item</div></div>
     <div class="schema-item"><div class="t">Avondpiek — 20:30</div><div class="d">Repost/relist je beste item (piekmoment kopers: 21:00-23:00)</div></div>
@@ -396,6 +460,7 @@ let products = [];
 let sales = [];
 let braindump = [];
 let retouren = [];
+let geluidAan = true;
 let growthChart = null;
 
 const STORE_PREFIX = 'abzvault_';
@@ -439,12 +504,25 @@ async function load() {
   loadTemplateList('berichten');
   loadTemplateList('faq');
   try {
+    const g = localStorage.getItem(STORE_PREFIX + 'geluid');
+    geluidAan = g === null ? true : g === '1';
+  } catch (e) { geluidAan = true; }
+  try {
     const m = localStorage.getItem(STORE_PREFIX + 'merknaam');
     if (m && document.getElementById('merknaam')) document.getElementById('merknaam').value = m;
   } catch (e) {}
   try { render(); } catch (e) { console.error('render error:', e); throw e; }
   try { checkOrderReminders(); } catch (e) {}
   try { checkBackupReminder(); } catch (e) {}
+  try { updateGeluidBtn(); } catch (e) {}
+  try { renderBegroeting(); } catch (e) {}
+  try { renderDailyQuote(); } catch (e) {}
+  try { renderRepostCountdown(); setInterval(renderRepostCountdown, 1000); } catch (e) {}
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [new File([''], 't.png', { type: 'image/png' })] })) {
+      document.getElementById('share-week-btn').style.display = 'inline-block';
+    }
+  } catch (e) {}
 }
 
 async function saveProducts() {
@@ -561,7 +639,7 @@ function renderVerkopen() {
     const isLast = status === 'Verstuurd';
     const statusColors = { 'Verkocht': '#888', 'Verwerkt': '#c9a227', 'Verstuurd': '#3fae5a' };
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${s.datum}</td><td>${naam}</td><td>${s.aantal}</td><td>${fmt(s.prijs)}</td><td>${fmt(winst)}</td>
+    tr.innerHTML = `<td>${s.datum}</td><td>${naam}</td><td>${s.koper || '—'}</td><td>${s.aantal}</td><td>${fmt(s.prijs)}</td><td>${fmt(winst)}</td>
       <td><button style="background:${statusColors[status]}; color:#111; border:none; border-radius:6px; padding:4px 10px; font-size:11px; cursor:${isLast ? 'default' : 'pointer'};" ${isLast ? 'disabled' : `onclick="nextStatus('${s.id}')"`}>${status}${isLast ? '' : ' ▸'}</button></td>
       <td><input value="${s.tracking || ''}" placeholder="trackingnr." style="width:100px; font-size:11px;" onchange="setTracking('${s.id}', this.value)" /></td>
       <td>${s.label
@@ -608,6 +686,8 @@ function renderDashboard() {
   renderRepriceSuggesties();
   renderSeasonalTip();
   renderBraindump();
+  renderGamificationBox();
+  checkConfettiTriggers();
 }
 
 function winstVoorSale(s) {
@@ -865,6 +945,347 @@ function startBraindumpVoice() {
   braindumpRecognition.start();
 }
 
+// ---- Groep 4: begroeting, rang/streak/badges, confetti, geluid, countdown, weekafbeelding, quote ----
+
+function localDateStr(d) {
+  d = d || new Date();
+  const jaar = d.getFullYear();
+  const maand = String(d.getMonth() + 1).padStart(2, '0');
+  const dag = String(d.getDate()).padStart(2, '0');
+  return `${jaar}-${maand}-${dag}`;
+}
+
+function typewriter(el, tekst, snelheid) {
+  snelheid = snelheid || 28;
+  el.textContent = '';
+  let i = 0;
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor-blink';
+  cursor.textContent = '|';
+  function stap() {
+    if (i <= tekst.length) {
+      el.textContent = tekst.slice(0, i);
+      el.appendChild(cursor);
+      i++;
+      setTimeout(stap, snelheid);
+    } else {
+      cursor.remove();
+    }
+  }
+  stap();
+}
+
+function renderBegroeting() {
+  const el = document.getElementById('begroeting');
+  if (!el) return;
+  const h = new Date().getHours();
+  const tijdGroet = h < 6 ? 'Goedenacht' : h < 12 ? 'Goedemorgen' : h < 18 ? 'Goedemiddag' : 'Goedenavond';
+  const notVerwerkt = sales.filter(s => (s.status || 'Verkocht') === 'Verkocht').length;
+  const notVerstuurd = sales.filter(s => (s.status || 'Verkocht') !== 'Verstuurd' && (s.status || 'Verkocht') !== 'Verkocht').length;
+  let statusDeel;
+  if (notVerwerkt > 0) statusDeel = `, nog ${notVerwerkt} te verwerken`;
+  else if (notVerstuurd > 0) statusDeel = `, nog ${notVerstuurd} te versturen`;
+  else statusDeel = ', alles bijgewerkt ✓';
+  typewriter(el, `${tijdGroet}${statusDeel}`);
+}
+
+const DAILY_QUOTES = [
+  'Elke verkoop begint met een goede foto.',
+  'Reposten kost niks, maar levert vaak het meest op.',
+  'Snel reageren op berichten verhoogt je verkoopkans aanzienlijk.',
+  'Een eerlijke beschrijving voorkomt bijna alle retouren.',
+  'Bundelkortingen verkopen vaak sneller dan losse items.',
+  'Nieuwe listings scoren het best rond piekmomenten.',
+  'Tevreden kopers laten vaker een review achter als je erom vraagt.',
+  'Een prijs net onder een rond getal (bijv. €19,95) verkoopt psychologisch beter.',
+  'Herinvesteer een deel van je winst in voorraad die al goed liep.',
+  'Consistentie wint het van perfectie — elke dag een beetje posten helpt.'
+];
+function renderDailyQuote() {
+  const el = document.getElementById('daily-quote');
+  if (!el) return;
+  const start = new Date(new Date().getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((new Date() - start) / 86400000);
+  el.textContent = '💬 ' + DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
+}
+
+const RANGEN = [
+  { min: 0, naam: 'Beginnende reseller' },
+  { min: 100, naam: 'Actieve reseller' },
+  { min: 500, naam: 'Ervaren reseller' },
+  { min: 1500, naam: 'AbzVault Pro' },
+  { min: 5000, naam: 'AbzVault Elite' }
+];
+function totaleWinst() {
+  return sales.reduce((a, s) => a + winstVoorSale(s), 0);
+}
+function huidigeRang() {
+  const winst = totaleWinst();
+  let rang = RANGEN[0];
+  RANGEN.forEach(r => { if (winst >= r.min) rang = r; });
+  const volgende = RANGEN[RANGEN.indexOf(rang) + 1] || null;
+  return { naam: rang.naam, winst, volgende };
+}
+function berekenStreak() {
+  const dagenMetVerkoop = new Set(sales.map(s => s.datum));
+  let streak = 0;
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  if (!dagenMetVerkoop.has(localDateStr(cursor))) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  while (dagenMetVerkoop.has(localDateStr(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+function berekenBadges() {
+  const winst = totaleWinst();
+  const aantalVerkopen = sales.reduce((a, s) => a + s.aantal, 0);
+  const kopers = {};
+  sales.forEach(s => { if (s.koper) kopers[s.koper] = (kopers[s.koper] || 0) + 1; });
+  const terugkerend = Object.values(kopers).some(c => c >= 2);
+  return [
+    { naam: 'Eerste €100 winst', behaald: winst >= 100 },
+    { naam: '10e verkoop', behaald: aantalVerkopen >= 10 },
+    { naam: 'Terugkerende klant', behaald: terugkerend }
+  ];
+}
+function renderGamificationBox() {
+  const el = document.getElementById('gamification-box');
+  if (!el) return;
+  const rang = huidigeRang();
+  const streak = berekenStreak();
+  const badges = berekenBadges();
+  const rangProgress = rang.volgende
+    ? `<span class="note" style="margin:0;">nog ${fmt(rang.volgende.min - rang.winst)} tot "${rang.volgende.naam}"</span>`
+    : `<span class="note" style="margin:0;">hoogste rang bereikt 🏆</span>`;
+  el.innerHTML = `
+    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px;">
+      <div>
+        <p class="lbl" style="margin:0;">Jouw rang</p>
+        <p style="margin:2px 0 0; font-size:16px; font-weight:600; color:var(--gold);">${rang.naam}</p>
+      </div>
+      ${rangProgress}
+      <div style="text-align:right;">
+        <p class="lbl" style="margin:0;">Verkoopstreak</p>
+        <p style="margin:2px 0 0; font-size:16px; font-weight:600;">${streak > 0 ? '🔥 ' + streak + ' dag' + (streak === 1 ? '' : 'en') : '— nog geen actieve streak'}</p>
+      </div>
+    </div>
+    <div>${badges.map(b => `<span class="badge-pill${b.behaald ? '' : ' locked'}">${b.behaald ? '✓' : '🔒'} ${b.naam}</span>`).join('')}</div>
+  `;
+}
+
+function spawnConfetti(aantal) {
+  aantal = aantal || 60;
+  let container = document.getElementById('confetti-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'confetti-container';
+    document.body.appendChild(container);
+  }
+  const kleuren = ['#d4af37', '#f2ede4', '#3fae5a', '#c29d2e', '#ffffff'];
+  for (let i = 0; i < aantal; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + 'vw';
+    piece.style.background = kleuren[Math.floor(Math.random() * kleuren.length)];
+    piece.style.animationDuration = (2.5 + Math.random() * 1.5) + 's';
+    piece.style.animationDelay = (Math.random() * 0.4) + 's';
+    container.appendChild(piece);
+    setTimeout(() => piece.remove(), 4500);
+  }
+}
+
+function checkConfettiTriggers() {
+  let shown = {};
+  try {
+    const raw = localStorage.getItem(STORE_PREFIX + 'confettiShown');
+    shown = raw ? JSON.parse(raw) : {};
+  } catch (e) { shown = {}; }
+
+  let doel = 500;
+  try { const d = localStorage.getItem(STORE_PREFIX + 'doel'); if (d) doel = parseFloat(d); } catch (e) {}
+  const now = new Date();
+  const maandKey = now.getFullYear() + '-' + (now.getMonth() + 1);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  let maandWinst = 0;
+  sales.forEach(s => { if (new Date(s.datum) >= monthStart) maandWinst += winstVoorSale(s); });
+  let gewijzigd = false;
+  if (doel > 0 && maandWinst >= doel && shown.maand !== maandKey) {
+    shown.maand = maandKey;
+    gewijzigd = true;
+    spawnConfetti();
+  }
+
+  const perDag = {};
+  sales.forEach(s => { perDag[s.datum] = (perDag[s.datum] || 0) + winstVoorSale(s); });
+  const vandaag = localDateStr(now);
+  const vandaagWinst = perDag[vandaag] || 0;
+  const andereDagen = Object.entries(perDag).filter(([d]) => d !== vandaag).map(([, w]) => w);
+  const besteAndereDag = andereDagen.length ? Math.max(...andereDagen) : 0;
+  if (vandaagWinst > 0 && vandaagWinst > besteAndereDag && shown.dagrecord !== vandaag) {
+    shown.dagrecord = vandaag;
+    gewijzigd = true;
+    spawnConfetti(40);
+  }
+
+  if (gewijzigd) {
+    try { localStorage.setItem(STORE_PREFIX + 'confettiShown', JSON.stringify(shown)); } catch (e) {}
+  }
+}
+
+function toggleGeluid() {
+  geluidAan = !geluidAan;
+  try { localStorage.setItem(STORE_PREFIX + 'geluid', geluidAan ? '1' : '0'); } catch (e) {}
+  updateGeluidBtn();
+  if (geluidAan) playChaChing();
+}
+function updateGeluidBtn() {
+  const btn = document.getElementById('geluid-btn');
+  if (!btn) return;
+  btn.textContent = geluidAan ? '🔊 Geluid aan' : '🔇 Geluid uit';
+}
+function playChaChing() {
+  if (!geluidAan) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+    [880, 1318.5].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, now + i * 0.09);
+      gain.gain.linearRampToValueAtTime(0.15, now + i * 0.09 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.09 + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + i * 0.09);
+      osc.stop(now + i * 0.09 + 0.4);
+    });
+    setTimeout(() => ctx.close(), 800);
+  } catch (e) {}
+}
+
+function renderRepostCountdown() {
+  const el = document.getElementById('repost-countdown');
+  if (!el) return;
+  const now = new Date();
+  const momenten = [11 * 60 + 45, 20 * 60 + 30];
+  const nuMin = now.getHours() * 60 + now.getMinutes();
+  let volgende = null;
+  for (const m of momenten) { if (m > nuMin) { volgende = m; break; } }
+  let morgen = false;
+  if (volgende === null) { volgende = momenten[0]; morgen = true; }
+  const doelTijd = new Date(now);
+  if (morgen) doelTijd.setDate(doelTijd.getDate() + 1);
+  doelTijd.setHours(Math.floor(volgende / 60), volgende % 60, 0, 0);
+  const diffMs = doelTijd - now;
+  const uren = Math.floor(diffMs / 3600000);
+  const minuten = Math.floor((diffMs % 3600000) / 60000);
+  const seconden = Math.floor((diffMs % 60000) / 1000);
+  const label = volgende === 11 * 60 + 45 ? 'Lunchpiek (11:45)' : 'Avondpiek (20:30)';
+  el.innerHTML = `
+    <p class="lbl" style="margin:0;">${label}${morgen ? ' — morgen' : ''}</p>
+    <p style="margin:4px 0 0; font-size:24px; font-weight:600; color:var(--gold);">${String(uren).padStart(2, '0')}:${String(minuten).padStart(2, '0')}:${String(seconden).padStart(2, '0')}</p>
+  `;
+}
+
+function weekStats() {
+  const now = new Date();
+  const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+  let aantal = 0, winst = 0;
+  const perProduct = {};
+  sales.forEach(s => {
+    const d = new Date(s.datum);
+    if (d >= weekAgo) {
+      aantal += s.aantal;
+      winst += winstVoorSale(s);
+      const p = products.find(pp => pp.id === s.productId);
+      const naam = p ? p.naam : '(verwijderd)';
+      perProduct[naam] = (perProduct[naam] || 0) + s.aantal;
+    }
+  });
+  const top = Object.entries(perProduct).sort((a, b) => b[1] - a[1])[0];
+  return { aantal, winst, topProduct: top ? top[0] : null };
+}
+
+function drawWeekImage() {
+  const canvas = document.getElementById('week-canvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.fillStyle = '#0f0f10';
+  ctx.fillRect(0, 0, w, h);
+  const grad = ctx.createRadialGradient(w * 0.8, h * 0.15, 10, w * 0.8, h * 0.15, 400);
+  grad.addColorStop(0, 'rgba(212,175,55,0.15)');
+  grad.addColorStop(1, 'rgba(212,175,55,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  const stats = weekStats();
+  ctx.fillStyle = '#d4af37';
+  ctx.font = 'bold 28px -apple-system, sans-serif';
+  ctx.fillText('AbzVault — weekoverzicht', 40, 70);
+
+  ctx.fillStyle = '#9a958c';
+  ctx.font = '16px -apple-system, sans-serif';
+  ctx.fillText(new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' }), 40, 100);
+
+  ctx.fillStyle = '#f2ede4';
+  ctx.font = 'bold 64px -apple-system, sans-serif';
+  ctx.fillText(fmt(stats.winst), 40, 210);
+  ctx.fillStyle = '#9a958c';
+  ctx.font = '18px -apple-system, sans-serif';
+  ctx.fillText('winst deze week', 40, 240);
+
+  ctx.fillStyle = '#f2ede4';
+  ctx.font = 'bold 40px -apple-system, sans-serif';
+  ctx.fillText(String(stats.aantal), 40, 320);
+  ctx.fillStyle = '#9a958c';
+  ctx.font = '16px -apple-system, sans-serif';
+  ctx.fillText('stuks verkocht', 40, 345);
+
+  if (stats.topProduct) {
+    ctx.fillStyle = '#d4af37';
+    ctx.font = '18px -apple-system, sans-serif';
+    ctx.fillText('Bestseller: ' + stats.topProduct, 40, 400);
+  }
+
+  ctx.strokeStyle = '#2a2a2c';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, w - 2, h - 2);
+}
+
+function downloadWeekImage() {
+  drawWeekImage();
+  const canvas = document.getElementById('week-canvas');
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'abzvault_weekoverzicht_' + new Date().toISOString().slice(0, 10) + '.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+}
+
+function shareWeekImage() {
+  drawWeekImage();
+  const canvas = document.getElementById('week-canvas');
+  canvas.toBlob(async blob => {
+    try {
+      const file = new File([blob], 'abzvault_weekoverzicht.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'AbzVault weekoverzicht' });
+      }
+    } catch (e) {}
+  });
+}
+
 let recognition = null;
 function startVoiceLog() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -902,11 +1323,13 @@ function verwerkVoiceLog(tekst) {
     aantal: 1,
     prijs,
     datum: new Date().toISOString().slice(0, 10),
+    koper: '',
     status: 'Verkocht',
     tracking: '',
     label: null
   });
   saveSales();
+  playChaChing();
   render();
   statusEl.textContent = `Gelogd: ${match.naam} — ${fmt(prijs)}`;
 }
@@ -1122,11 +1545,14 @@ function addSale() {
     aantal: parseFloat(document.getElementById('s-aantal').value) || 0,
     prijs: parseFloat(document.getElementById('s-prijs').value) || 0,
     datum: document.getElementById('s-datum').value || new Date().toISOString().slice(0, 10),
+    koper: document.getElementById('s-koper').value.trim(),
     status: 'Verkocht',
     tracking: '',
     label: null
   });
   saveSales();
+  document.getElementById('s-koper').value = '';
+  playChaChing();
   render();
 }
 
