@@ -142,6 +142,10 @@
   .row-actions { display: flex; gap: 6px; }
   .del { background: transparent; border: 1px solid #4a2a2a; color: var(--red); font-size: 11px; padding: 4px 8px; }
   .section-title { font-size: 15px; font-weight: 600; margin: 24px 0 10px; }
+
+  .dash-group { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--border); }
+  .group-title { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); margin: 0 0 4px; }
+  .group-title.group-title-quiet { color: var(--text-dim); }
   .note { font-size: 12px; color: var(--text-faint); margin-top: 6px; }
 
   /* ===== Utility box (shared panel-card background) ===== */
@@ -230,104 +234,114 @@
   <main class="content">
     <p class="sub">Voorraad, verkopen, prijzen en listingteksten op één plek. Data blijft bewaard tussen sessies.</p>
     <div class="panel active" id="panel-dashboard">
-    <h2 id="begroeting" style="font-size:19px; font-weight:600; margin:0 0 14px; min-height:26px;"></h2>
-    <div id="gamification-box" class="box"></div>
-    <div id="seasonal-tip"></div>
-    <div class="section-title" style="margin-top:0;">Winstdoel deze maand</div>
-    <div class="box">
-      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
-        <span id="doel-tekst" style="font-size:14px; color:#aaa;">€0 / €500</span>
-        <button class="secondary" style="padding:3px 10px; font-size:12px;" onclick="wijzigDoel()">Doel wijzigen</button>
+    <p id="daily-quote" style="font-size:15px; font-style:italic; color:var(--text); margin:0 0 24px; line-height:1.5;"></p>
+
+    <div class="dash-group" style="margin-top:0; padding-top:0; border-top:none;">
+      <div class="group-title">Vandaag</div>
+      <h2 id="begroeting" style="font-size:19px; font-weight:600; margin:0 0 14px; min-height:26px;"></h2>
+      <div id="gamification-box" class="box"></div>
+      <div id="seasonal-tip"></div>
+      <div class="section-title">Voorraad-waarschuwingen</div>
+      <div id="voorraad-alarm" class="box"></div>
+      <div class="section-title">Reprice-suggesties</div>
+      <div id="reprice-suggesties" class="box"></div>
+    </div>
+
+    <div class="dash-group">
+      <div class="group-title">Doelen &amp; prestaties</div>
+      <div id="archief-selector"></div>
+      <div class="section-title" style="margin-top:0;">Winstdoel</div>
+      <div class="box">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+          <span id="doel-tekst" style="font-size:14px; color:#aaa;">€0 / €500</span>
+          <button class="secondary" style="padding:3px 10px; font-size:12px;" onclick="wijzigDoel()">Doel wijzigen</button>
+        </div>
+        <div style="height:12px; background:#2a2a2c; border-radius:6px; overflow:hidden;">
+          <div id="doel-balk" style="width:0%; height:100%; background:#d4af37;"></div>
+        </div>
+        <div id="doel-status" style="font-size:12px; color:#888; margin-top:6px;"></div>
       </div>
-      <div style="height:12px; background:#2a2a2c; border-radius:6px; overflow:hidden;">
-        <div id="doel-balk" style="width:0%; height:100%; background:#d4af37;"></div>
+      <div class="section-title">Maandvergelijking</div>
+      <div id="maand-vergelijking" class="box"></div>
+      <div class="cards">
+        <div class="card"><div class="label">Producten</div><div class="value" id="d-producten">0</div></div>
+        <div class="card"><div class="label">Voorraadwaarde (inkoop)</div><div class="value" id="d-waarde">€0</div></div>
+        <div class="card"><div class="label">Verkopen</div><div class="value" id="d-verkopen">0</div></div>
+        <div class="card"><div class="label">Totale winst</div><div class="value" id="d-winst">€0</div></div>
       </div>
-      <div id="doel-status" style="font-size:12px; color:#888; margin-top:6px;"></div>
-    </div>
-    <div class="section-title">Maandvergelijking</div>
-    <div id="maand-vergelijking" class="box"></div>
-    <div class="cards">
-      <div class="card"><div class="label">Producten</div><div class="value" id="d-producten">0</div></div>
-      <div class="card"><div class="label">Voorraadwaarde (inkoop)</div><div class="value" id="d-waarde">€0</div></div>
-      <div class="card"><div class="label">Verkopen</div><div class="value" id="d-verkopen">0</div></div>
-      <div class="card"><div class="label">Totale winst</div><div class="value" id="d-winst">€0</div></div>
-    </div>
-
-    <div class="section-title">Deze periode</div>
-    <div class="cards">
-      <div class="card"><div class="label">Deze week — verkocht</div><div class="value" id="d-week-aantal">0</div></div>
-      <div class="card"><div class="label">Deze week — winst</div><div class="value" id="d-week-winst">€0</div></div>
-      <div class="card"><div class="label">Deze maand — verkocht</div><div class="value" id="d-maand-aantal">0</div></div>
-      <div class="card"><div class="label">Deze maand — winst</div><div class="value" id="d-maand-winst">€0</div></div>
-    </div>
-
-    <div class="section-title">Bestsellers</div>
-    <div style="overflow-x:auto;"><table><thead><tr><th>Product</th><th>Verkocht (stuks)</th><th>Winst totaal</th></tr></thead><tbody id="d-bestsellers"></tbody></table></div>
-
-    <div class="section-title">Winst per product (per geïnvesteerde euro)</div>
-    <div id="winst-analyse" class="box"></div>
-
-    <div class="section-title">Break-even per product</div>
-    <div id="break-even" class="box"></div>
-
-    <div class="section-title">Jouw beste verkoopmomenten</div>
-    <div id="besteschema" class="box"></div>
-
-    <div class="section-title">Countdown feestdagen</div>
-    <div id="feestdagen-countdown" class="box"></div>
-
-    <div class="section-title">Voorraad-waarschuwingen</div>
-    <div id="voorraad-alarm" class="box"></div>
-
-    <div class="section-title">Reprice-suggesties</div>
-    <div id="reprice-suggesties" class="box"></div>
-
-    <div class="section-title">BTW-indicatie</div>
-    <div class="formgrid" style="max-width:260px;">
-      <div class="field"><label>BTW-percentage (%)</label><input id="d-btw-pct" type="number" value="21" oninput="renderDashboard()" /></div>
-    </div>
-    <div class="cards">
-      <div class="card"><div class="label">Totale omzet</div><div class="value" id="d-omzet">€0</div></div>
-      <div class="card"><div class="label">Indicatief opzij te zetten</div><div class="value" id="d-btw-bedrag">€0</div></div>
-    </div>
-    <p class="note">Indicatief, geen fiscaal advies — check je exacte regeling (bijv. kleineondernemersregeling) bij de Belastingdienst of een boekhouder.</p>
-    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; margin: 24px 0 10px;">
-      <div class="section-title" style="margin:0;">Groei — cumulatieve winst</div>
-      <button class="secondary" onclick="exportExcel()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px; margin-right:6px;"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>Exporteren naar Excel</button>
-      <button class="secondary" onclick="exportBackup()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px; margin-right:6px;"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><path d="M12 12v6"/><path d="m9.5 15.5 2.5 2.5 2.5-2.5"/></svg>Back-up opslaan</button>
-      <button class="secondary" onclick="document.getElementById('backup-file-input').click()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px; margin-right:6px;"><path d="M12 21V9"/><path d="m7 13 5-5 5 5"/><path d="M5 3h14"/></svg>Back-up terugzetten</button>
-      <input type="file" id="backup-file-input" accept=".json" style="display:none;" onchange="importBackup(this)" />
-    </div>
-    <div class="box">
-      <canvas id="growth-chart" height="90"></canvas>
-    </div>
-    <div class="section-title">Laagste voorraad</div>
-    <div style="overflow-x:auto;"><table><thead><tr><th>Product</th><th>Resterend</th></tr></thead><tbody id="d-laag"></tbody></table></div>
-
-    <div class="section-title">Braindump</div>
-    <div class="box">
-      <div class="field" style="margin-bottom:10px;">
-        <label>Snel een idee of gedachte kwijt?</label>
-        <textarea id="braindump-input" rows="2" placeholder="Typ of spreek een losse gedachte in..."></textarea>
+      <div class="section-title">Deze periode</div>
+      <div class="cards">
+        <div class="card"><div class="label">Deze week — verkocht</div><div class="value" id="d-week-aantal">0</div></div>
+        <div class="card"><div class="label">Deze week — winst</div><div class="value" id="d-week-winst">€0</div></div>
+        <div class="card"><div class="label">Deze maand — verkocht</div><div class="value" id="d-maand-aantal">0</div></div>
+        <div class="card"><div class="label">Deze maand — winst</div><div class="value" id="d-maand-winst">€0</div></div>
       </div>
-      <div class="row-actions" style="margin-bottom:14px;">
-        <button onclick="addBraindump()">Toevoegen</button>
-        <button class="secondary" id="braindump-voice-btn" onclick="startBraindumpVoice()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px; margin-right:6px;"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg>Spreek in</button>
+      <div class="section-title">Groei — cumulatieve winst</div>
+      <div class="box">
+        <canvas id="growth-chart" height="90"></canvas>
       </div>
-      <div id="braindump-list"></div>
     </div>
 
-    <div class="section-title">Weekoverzicht delen</div>
-    <div class="box">
-      <p class="note" style="margin:0 0 12px;">Genereert een deelbare afbeelding met je belangrijkste weekstats.</p>
-      <div class="row-actions">
-        <button class="secondary" onclick="downloadWeekImage()">Download als afbeelding</button>
-        <button class="secondary" id="share-week-btn" onclick="shareWeekImage()" style="display:none;">Delen</button>
-      </div>
-      <canvas id="week-canvas" width="800" height="450" style="display:none;"></canvas>
+    <div class="dash-group">
+      <div class="group-title group-title-quiet">Productanalyse</div>
+      <div class="section-title" style="margin-top:0;">Bestsellers</div>
+      <div style="overflow-x:auto;"><table><thead><tr><th>Product</th><th>Verkocht (stuks)</th><th>Winst totaal</th></tr></thead><tbody id="d-bestsellers"></tbody></table></div>
+      <div class="section-title">Winst per product (per geïnvesteerde euro)</div>
+      <div id="winst-analyse" class="box"></div>
+      <div class="section-title">Break-even per product</div>
+      <div id="break-even" class="box"></div>
+      <div class="section-title">Laagste voorraad</div>
+      <div style="overflow-x:auto;"><table><thead><tr><th>Product</th><th>Resterend</th></tr></thead><tbody id="d-laag"></tbody></table></div>
     </div>
 
-    <p class="note" id="daily-quote" style="text-align:center; margin:24px 0 0; font-style:italic;"></p>
+    <div class="dash-group">
+      <div class="group-title">Planning</div>
+      <div class="section-title" style="margin-top:0;">Jouw beste verkoopmomenten</div>
+      <div id="besteschema" class="box"></div>
+      <div class="section-title">Countdown feestdagen</div>
+      <div id="feestdagen-countdown" class="box"></div>
+      <div class="section-title">BTW-indicatie</div>
+      <div class="formgrid" style="max-width:260px;">
+        <div class="field"><label>BTW-percentage (%)</label><input id="d-btw-pct" type="number" value="21" oninput="renderDashboard()" /></div>
+      </div>
+      <div class="cards">
+        <div class="card"><div class="label">Totale omzet</div><div class="value" id="d-omzet">€0</div></div>
+        <div class="card"><div class="label">Indicatief opzij te zetten</div><div class="value" id="d-btw-bedrag">€0</div></div>
+      </div>
+      <p class="note">Indicatief, geen fiscaal advies — check je exacte regeling (bijv. kleineondernemersregeling) bij de Belastingdienst of een boekhouder.</p>
+    </div>
+
+    <div class="dash-group">
+      <div class="group-title">Braindump &amp; acties</div>
+      <div class="section-title" style="margin-top:0;">Braindump</div>
+      <div class="box">
+        <div class="field" style="margin-bottom:10px;">
+          <label>Snel een idee of gedachte kwijt?</label>
+          <textarea id="braindump-input" rows="2" placeholder="Typ of spreek een losse gedachte in..."></textarea>
+        </div>
+        <div class="row-actions" style="margin-bottom:14px;">
+          <button onclick="addBraindump()">Toevoegen</button>
+          <button class="secondary" id="braindump-voice-btn" onclick="startBraindumpVoice()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px; margin-right:6px;"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg>Spreek in</button>
+        </div>
+        <div id="braindump-list"></div>
+      </div>
+      <div class="section-title">Exporteren &amp; back-up</div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px;">
+        <button class="secondary" onclick="exportExcel()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px; margin-right:6px;"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>Exporteren naar Excel</button>
+        <button class="secondary" onclick="exportBackup()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px; margin-right:6px;"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><path d="M12 12v6"/><path d="m9.5 15.5 2.5 2.5 2.5-2.5"/></svg>Back-up opslaan</button>
+        <button class="secondary" onclick="document.getElementById('backup-file-input').click()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px; margin-right:6px;"><path d="M12 21V9"/><path d="m7 13 5-5 5 5"/><path d="M5 3h14"/></svg>Back-up terugzetten</button>
+        <input type="file" id="backup-file-input" accept=".json" style="display:none;" onchange="importBackup(this)" />
+      </div>
+      <div class="section-title">Weekoverzicht delen</div>
+      <div class="box">
+        <p class="note" style="margin:0 0 12px;">Genereert een deelbare afbeelding met je belangrijkste weekstats.</p>
+        <div class="row-actions">
+          <button class="secondary" onclick="downloadWeekImage()">Download als afbeelding</button>
+          <button class="secondary" id="share-week-btn" onclick="shareWeekImage()" style="display:none;">Delen</button>
+        </div>
+        <canvas id="week-canvas" width="800" height="450" style="display:none;"></canvas>
+      </div>
+    </div>
   </div>
 
   <div class="panel" id="panel-voorraad">
@@ -469,6 +483,7 @@ let sales = [];
 let braindump = [];
 let retouren = [];
 let geluidAan = true;
+let archiefOffset = 0;
 let growthChart = null;
 
 const STORE_PREFIX = 'abzvault_';
@@ -662,8 +677,10 @@ function renderDashboard() {
   document.getElementById('d-producten').textContent = products.length;
   const waarde = products.reduce((a, p) => a + p.inkoop * p.aantal, 0);
   document.getElementById('d-waarde').textContent = fmt(waarde);
-  document.getElementById('d-verkopen').textContent = sales.reduce((a, s) => a + s.aantal, 0);
-  const winst = sales.reduce((a, s) => {
+  const archiefInfo = archiefMaandInfo(archiefOffset);
+  const archiefSales = sales.filter(s => { const d = new Date(s.datum); return d >= archiefInfo.start && d < archiefInfo.eind; });
+  document.getElementById('d-verkopen').textContent = archiefSales.reduce((a, s) => a + s.aantal, 0);
+  const winst = archiefSales.reduce((a, s) => {
     const p = products.find(pp => pp.id === s.productId);
     return a + (p ? (s.prijs - p.inkoop) * s.aantal : 0);
   }, 0);
@@ -680,6 +697,7 @@ function renderDashboard() {
       laag.appendChild(tr);
     });
 
+  renderArchiefSelector();
   renderPeriodStats();
   renderBestsellers();
   renderBtw();
@@ -703,13 +721,45 @@ function winstVoorSale(s) {
   return p ? (s.prijs - p.inkoop) * s.aantal : 0;
 }
 
+function archiefMaandInfo(offset) {
+  const nu = new Date();
+  const d = new Date(nu.getFullYear(), nu.getMonth() + offset, 1);
+  const start = new Date(d.getFullYear(), d.getMonth(), 1);
+  const eind = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  const label = d.toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' });
+  return { start, eind, label };
+}
+function archiefVorige() {
+  archiefOffset--;
+  renderArchiefSelector();
+  renderDashboard();
+}
+function archiefVolgende() {
+  if (archiefOffset < 0) {
+    archiefOffset++;
+    renderArchiefSelector();
+    renderDashboard();
+  }
+}
+function renderArchiefSelector() {
+  const el = document.getElementById('archief-selector');
+  if (!el) return;
+  const info = archiefMaandInfo(archiefOffset);
+  const isHuidig = archiefOffset === 0;
+  el.innerHTML = `
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+      <button class="secondary" style="padding:4px 10px; font-size:13px;" onclick="archiefVorige()">◀</button>
+      <span style="font-size:14px; font-weight:600; min-width:150px; text-align:center;">${info.label}${isHuidig ? ' · huidig' : ''}</span>
+      <button class="secondary" style="padding:4px 10px; font-size:13px;${isHuidig ? ' opacity:0.35; cursor:default;' : ''}" ${isHuidig ? 'disabled' : ''} onclick="archiefVolgende()">▶</button>
+    </div>`;
+}
+
 function renderDoel() {
   let doel = 500;
   try { const d = localStorage.getItem(STORE_PREFIX + 'doel'); if (d) doel = parseFloat(d); } catch (e) {}
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const info = archiefMaandInfo(archiefOffset);
   let maandWinst = 0;
-  sales.forEach(s => { if (new Date(s.datum) >= monthStart) maandWinst += winstVoorSale(s); });
+  sales.forEach(s => { const d = new Date(s.datum); if (d >= info.start && d < info.eind) maandWinst += winstVoorSale(s); });
   const pct = doel > 0 ? Math.min(100, Math.round((maandWinst / doel) * 100)) : 0;
   document.getElementById('doel-tekst').textContent = fmt(maandWinst) + ' / ' + fmt(doel);
   document.getElementById('doel-balk').style.width = pct + '%';
@@ -731,8 +781,9 @@ function wijzigDoel() {
 function renderWinstAnalyse() {
   const el = document.getElementById('winst-analyse');
   if (!el) return;
+  const info = archiefMaandInfo(archiefOffset);
   const perProduct = {};
-  sales.forEach(s => {
+  sales.filter(s => { const d = new Date(s.datum); return d >= info.start && d < info.eind; }).forEach(s => {
     const p = products.find(pp => pp.id === s.productId);
     if (!p) return;
     if (!perProduct[p.id]) perProduct[p.id] = { naam: p.naam, winst: 0, inkoop: 0 };
@@ -1012,9 +1063,8 @@ const DAILY_QUOTES = [
 function renderDailyQuote() {
   const el = document.getElementById('daily-quote');
   if (!el) return;
-  const start = new Date(new Date().getFullYear(), 0, 0);
-  const dayOfYear = Math.floor((new Date() - start) / 86400000);
-  el.textContent = '💬 ' + DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
+  const idx = Math.floor(Math.random() * DAILY_QUOTES.length);
+  el.textContent = '💬 ' + DAILY_QUOTES[idx];
 }
 
 const RANGEN = [
@@ -1363,8 +1413,9 @@ function renderPeriodStats() {
 function renderBestsellers() {
   const body = document.getElementById('d-bestsellers');
   body.innerHTML = '';
+  const info = archiefMaandInfo(archiefOffset);
   const perProduct = {};
-  sales.forEach(s => {
+  sales.filter(s => { const d = new Date(s.datum); return d >= info.start && d < info.eind; }).forEach(s => {
     if (!perProduct[s.productId]) perProduct[s.productId] = { aantal: 0, winst: 0 };
     perProduct[s.productId].aantal += s.aantal;
     perProduct[s.productId].winst += winstVoorSale(s);
@@ -1393,7 +1444,8 @@ function renderBtw() {
 function renderGrowthChart() {
   const canvas = document.getElementById('growth-chart');
   if (!canvas || typeof Chart === 'undefined') return;
-  const sorted = sales.slice().sort((a, b) => a.datum.localeCompare(b.datum));
+  const info = archiefMaandInfo(archiefOffset);
+  const sorted = sales.filter(s => { const d = new Date(s.datum); return d >= info.start && d < info.eind; }).slice().sort((a, b) => a.datum.localeCompare(b.datum));
   let cum = 0;
   const labels = [];
   const data = [];
