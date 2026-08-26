@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AbzVault → Vinted autofill
 // @namespace    abzvault
-// @version      1.4
+// @version      1.5
 // @description  Vult een nieuwe Vinted-advertentie automatisch in met data uit AbzVault.
 // @match        https://www.vinted.nl/items/new*
 // @run-at       document-idle
@@ -92,6 +92,12 @@
     return null;
   }
 
+  // Escape doesn't reliably close Vinted's multi-select panels (materiaal/kleur/maat);
+  // a real click outside the panel does, since that's what their own "click outside" handler listens for.
+  function closeDropdown() {
+    document.body.click();
+  }
+
   function findCheckboxRowExact(naam) {
     const boxes = Array.from(document.querySelectorAll('input[type="checkbox"]'));
     for (const box of boxes) {
@@ -141,7 +147,7 @@
       const found = findCheckboxRowExact(naam);
       if (found) { found.row.click(); count++; await sleep(200); }
     }
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    closeDropdown();
     await sleep(200);
     return count;
   }
@@ -166,7 +172,7 @@
         .find(e => e.textContent.trim().toLowerCase() === naam.trim().toLowerCase());
       if (el) { el.click(); count++; await sleep(200); }
     }
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    closeDropdown();
     await sleep(200);
     return count;
   }
@@ -186,10 +192,10 @@
     await sleep(400);
     const el = Array.from(document.querySelectorAll('[role="checkbox"], [role="radio"]'))
       .find(e => e.textContent.trim().toLowerCase() === naam.trim().toLowerCase());
-    if (!el) { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return false; }
+    if (!el) { closeDropdown(); return false; }
     el.click();
     await sleep(200);
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    closeDropdown();
     await sleep(200);
     return true;
   }
