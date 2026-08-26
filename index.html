@@ -1816,6 +1816,13 @@ function defaultVintedCategorie(p) {
   return { zoekterm: 'Kettingen', pad: 'Sieraden' };
 }
 
+function defaultVintedMaterialen(p) {
+  const t = ((p.naam || '') + ' ' + (p.kenmerk || '')).toLowerCase();
+  if (t.includes('pet') || t.includes('cap')) return 'Katoen';
+  if (t.includes('zilver') || t.includes('silver')) return 'Staal, Zilver';
+  return 'Staal, Goud';
+}
+
 const VINTED_STAAT_OPTIES = ['Nieuw met prijskaartje', 'Nieuw zonder prijskaartje', 'Heel goed', 'Goed', 'Veelgebruikt'];
 
 function renderListingCards() {
@@ -1835,6 +1842,7 @@ function renderListingCards() {
       p.vintedCategoriePad = cat.pad;
     }
     if (p.vintedStaat === undefined) p.vintedStaat = 'Nieuw zonder prijskaartje';
+    if (p.vintedMaterialen === undefined) p.vintedMaterialen = defaultVintedMaterialen(p);
 
     const card = document.createElement('div');
     card.className = 'out-box';
@@ -1863,6 +1871,10 @@ function renderListingCards() {
             ${VINTED_STAAT_OPTIES.map(o => `<option value="${o}" ${p.vintedStaat === o ? 'selected' : ''}>${o}</option>`).join('')}
           </select>
         </div>
+        <div style="flex:1; min-width:160px;">
+          <p class="lbl">Materialen (kommagescheiden, min. 2)</p>
+          <input data-id="${p.id}" data-field="vintedMaterialen" value="${p.vintedMaterialen.replace(/"/g, '&quot;')}" placeholder="bv. Staal, Goud" style="width:100%;" />
+        </div>
       </div>
       <button class="secondary" onclick="postNaarVinted('${p.id}')" style="margin-top:12px;">Zet op Vinted</button>
       <p class="note" style="margin-top:6px;">Vult titel, beschrijving, prijs, categorie en staat automatisch in op een nieuwe Vinted-advertentie. Foto's en controle blijven handmatig. Vereist het AbzVault-userscript in Tampermonkey.</p>
@@ -1880,7 +1892,8 @@ function postNaarVinted(id) {
     prijs: p.verkoop,
     categorieZoekterm: p.vintedCategorieZoekterm,
     categoriePad: p.vintedCategoriePad,
-    staat: p.vintedStaat
+    staat: p.vintedStaat,
+    materialen: (p.vintedMaterialen || '').split(',').map(s => s.trim()).filter(Boolean)
   };
   const encoded = encodeURIComponent(JSON.stringify(payload));
   window.open('https://www.vinted.nl/items/new#abzvault=' + encoded, '_blank');

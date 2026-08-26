@@ -67,12 +67,12 @@
     el.dispatchEvent(new Event('blur', { bubbles: true }));
   }
 
-  // Vinted's radio rows are custom-styled: walk up from the native <input type="radio">
-  // until we hit an ancestor that actually carries the row's visible text, then click that.
-  function findRadioRow(radio) {
-    let node = radio;
+  // Vinted's radio/checkbox rows are custom-styled: walk up from the native
+  // <input> until we hit an ancestor that actually carries the row's visible text, then click that.
+  function findOptionRow(input, minLen = 3) {
+    let node = input;
     for (let i = 0; i < 6 && node; i++) {
-      if (node.textContent && node.textContent.trim().length > 3) return node;
+      if (node.textContent && node.textContent.trim().length > minLen) return node;
       node = node.parentElement;
     }
     return null;
@@ -81,8 +81,17 @@
   function findRadioRowByText(matchFn) {
     const radios = Array.from(document.querySelectorAll('input[type="radio"]'));
     for (const radio of radios) {
-      const row = findRadioRow(radio);
+      const row = findOptionRow(radio);
       if (row && matchFn(row.textContent.trim())) return row;
+    }
+    return null;
+  }
+
+  function findCheckboxRowExact(naam) {
+    const boxes = Array.from(document.querySelectorAll('input[type="checkbox"]'));
+    for (const box of boxes) {
+      const row = findOptionRow(box, 1);
+      if (row && row.textContent.trim().toLowerCase() === naam.trim().toLowerCase()) return { row, box };
     }
     return null;
   }
@@ -116,6 +125,22 @@
     return false;
   }
 
+  async function fillMaterialen(lijst) {
+    if (!lijst || !lijst.length) return 0;
+    const trigger = document.getElementById('material');
+    if (!trigger) return 0;
+    trigger.click();
+    await sleep(400);
+    let count = 0;
+    for (const naam of lijst) {
+      const found = findCheckboxRowExact(naam);
+      if (found) { found.row.click(); count++; await sleep(200); }
+    }
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await sleep(200);
+    return count;
+  }
+
   function showToast(msg) {
     const el = document.createElement('div');
     el.textContent = msg;
@@ -141,20 +166,25 @@
 
     let categorieOk = false;
     let staatOk = false;
+    let materiaalCount = 0;
     if (data.categorieZoekterm) {
       categorieOk = await fillCategorie(data.categorieZoekterm, data.categoriePad);
-      if (categorieOk && data.staat) {
+      if (categorieOk) {
         await sleep(500);
-        staatOk = await fillStaat(data.staat);
+        if (data.staat) staatOk = await fillStaat(data.staat);
+        await sleep(300);
+        if (data.materialen && data.materialen.length) materiaalCount = await fillMaterialen(data.materialen);
       }
     }
 
     const gedaan = ['titel', 'beschrijving', 'prijs'];
     if (categorieOk) gedaan.push('categorie');
     if (staatOk) gedaan.push('staat');
+    if (materiaalCount) gedaan.push('materiaal');
     const missend = [];
     if (data.categorieZoekterm && !categorieOk) missend.push('categorie');
     if (data.staat && categorieOk && !staatOk) missend.push('staat');
+    if (data.materialen && data.materialen.length && materiaalCount < data.materialen.length) missend.push('materiaal');
 
     let msg = 'AbzVault: ' + gedaan.join(', ') + ' ingevuld. Nu nog foto\'s toevoegen';
     if (missend.length) msg += ' — en handmatig: ' + missend.join(', ');
