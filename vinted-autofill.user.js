@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         AbzVault → Vinted autofill
 // @namespace    abzvault
-// @version      1.0
-// @description  Vult titel, beschrijving, prijs, categorie en staat automatisch in op een nieuwe Vinted-advertentie, met data vanuit het AbzVault-dashboard.
+// @version      1.3
+// @description  Vult een nieuwe Vinted-advertentie automatisch in met data uit AbzVault.
 // @match        https://www.vinted.nl/items/new*
 // @run-at       document-idle
 // ==/UserScript==
@@ -146,6 +146,38 @@
     return count;
   }
 
+  async function fillUniseks(waarde) {
+    if (!waarde) return false;
+    const cb = document.getElementById('unisex');
+    if (!cb) return false;
+    if (!cb.checked) cb.click();
+    return true;
+  }
+
+  async function fillKleuren(lijst) {
+    if (!lijst || !lijst.length) return 0;
+    const trigger = document.getElementById('color');
+    if (!trigger) return 0;
+    trigger.click();
+    await sleep(400);
+    let count = 0;
+    for (const naam of lijst) {
+      const el = Array.from(document.querySelectorAll('[role="checkbox"]'))
+        .find(e => e.textContent.trim().toLowerCase() === naam.trim().toLowerCase());
+      if (el) { el.click(); count++; await sleep(200); }
+    }
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await sleep(200);
+    return count;
+  }
+
+  async function fillVerzendformaat(naam) {
+    if (!naam) return false;
+    const row = findRadioRowByText(text => text.startsWith(naam));
+    if (row) { row.click(); return true; }
+    return false;
+  }
+
   function showToast(msg) {
     const el = document.createElement('div');
     el.textContent = msg;
@@ -183,24 +215,36 @@
     let categorieOk = false;
     let staatOk = false;
     let materiaalCount = 0;
+    let kleurCount = 0;
+    let verzendOk = false;
+    let unisekOk = false;
     if (data.categorieZoekterm) {
       categorieOk = await fillCategorie(data.categorieZoekterm, data.categoriePad);
       if (categorieOk) {
         await sleep(500);
+        if (data.uniseks) unisekOk = await fillUniseks(data.uniseks);
         if (data.staat) staatOk = await fillStaat(data.staat);
         await sleep(300);
         if (data.materialen && data.materialen.length) materiaalCount = await fillMaterialen(data.materialen);
+        await sleep(300);
+        if (data.kleuren && data.kleuren.length) kleurCount = await fillKleuren(data.kleuren);
       }
     }
+    if (data.verzendformaat) verzendOk = await fillVerzendformaat(data.verzendformaat);
 
     const gedaan = ['titel', 'beschrijving', 'prijs'];
     if (categorieOk) gedaan.push('categorie');
+    if (unisekOk) gedaan.push('uniseks');
     if (staatOk) gedaan.push('staat');
     if (materiaalCount) gedaan.push('materiaal');
+    if (kleurCount) gedaan.push('kleur');
+    if (verzendOk) gedaan.push('verzendformaat');
     const missend = [];
     if (data.categorieZoekterm && !categorieOk) missend.push('categorie');
     if (data.staat && categorieOk && !staatOk) missend.push('staat');
     if (data.materialen && data.materialen.length && materiaalCount < data.materialen.length) missend.push('materiaal');
+    if (data.kleuren && data.kleuren.length && kleurCount < data.kleuren.length) missend.push('kleur');
+    if (data.verzendformaat && !verzendOk) missend.push('verzendformaat');
 
     let msg = 'AbzVault: ' + gedaan.join(', ') + ' ingevuld. Nu nog foto\'s toevoegen';
     if (missend.length) msg += ' — en handmatig: ' + missend.join(', ');
