@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AbzVault → Vinted autofill
 // @namespace    abzvault
-// @version      1.3
+// @version      1.4
 // @description  Vult een nieuwe Vinted-advertentie automatisch in met data uit AbzVault.
 // @match        https://www.vinted.nl/items/new*
 // @run-at       document-idle
@@ -178,6 +178,22 @@
     return false;
   }
 
+  async function fillMaat(naam) {
+    if (!naam) return false;
+    const trigger = document.getElementById('size');
+    if (!trigger) return false;
+    trigger.click();
+    await sleep(400);
+    const el = Array.from(document.querySelectorAll('[role="checkbox"], [role="radio"]'))
+      .find(e => e.textContent.trim().toLowerCase() === naam.trim().toLowerCase());
+    if (!el) { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return false; }
+    el.click();
+    await sleep(200);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await sleep(200);
+    return true;
+  }
+
   function showToast(msg) {
     const el = document.createElement('div');
     el.textContent = msg;
@@ -201,55 +217,70 @@
     const data = readPayload();
     if (!data) return;
 
+    // Guard against the same script being installed/enabled more than once in
+    // Tampermonkey: two simultaneous runs fight over the same fields (e.g. both
+    // click the category trigger at once, closing what the other just opened).
+    if (window.__abzvaultAutofillRunning) return;
+    window.__abzvaultAutofillRunning = true;
+
     // Clear the hash immediately so a refresh doesn't re-trigger the fill.
     history.replaceState(null, '', location.pathname + location.search);
 
-    const title = await waitFor('#title').catch(() => null);
-    const description = await waitFor('#description').catch(() => null);
-    const price = await waitFor('#price').catch(() => null);
+    try {
+      const title = await waitFor('#title').catch(() => null);
+      const description = await waitFor('#description').catch(() => null);
+      const price = await waitFor('#price').catch(() => null);
 
-    if (title && data.titel) setNativeValue(title, data.titel);
-    if (description && data.beschrijving) setNativeValue(description, data.beschrijving);
-    if (price && data.prijs != null) await typeInto(price, String(data.prijs).replace('.', ','));
+      if (title && data.titel) setNativeValue(title, data.titel);
+      if (description && data.beschrijving) setNativeValue(description, data.beschrijving);
+      if (price && data.prijs != null) await typeInto(price, String(data.prijs).replace('.', ','));
 
-    let categorieOk = false;
-    let staatOk = false;
-    let materiaalCount = 0;
-    let kleurCount = 0;
-    let verzendOk = false;
-    let unisekOk = false;
-    if (data.categorieZoekterm) {
-      categorieOk = await fillCategorie(data.categorieZoekterm, data.categoriePad);
-      if (categorieOk) {
-        await sleep(500);
-        if (data.uniseks) unisekOk = await fillUniseks(data.uniseks);
-        if (data.staat) staatOk = await fillStaat(data.staat);
-        await sleep(300);
-        if (data.materialen && data.materialen.length) materiaalCount = await fillMaterialen(data.materialen);
-        await sleep(300);
-        if (data.kleuren && data.kleuren.length) kleurCount = await fillKleuren(data.kleuren);
+      let categorieOk = false;
+      let staatOk = false;
+      let materiaalCount = 0;
+      let kleurCount = 0;
+      let verzendOk = false;
+      let unisekOk = false;
+      let maatOk = false;
+      if (data.categorieZoekterm) {
+        categorieOk = await fillCategorie(data.categorieZoekterm, data.categoriePad);
+        if (categorieOk) {
+          await sleep(500);
+          if (data.uniseks) unisekOk = await fillUniseks(data.uniseks);
+          if (data.staat) staatOk = await fillStaat(data.staat);
+          if (data.maat) maatOk = await fillMaat(data.maat);
+          await sleep(300);
+          if (data.materialen && data.materialen.length) materiaalCount = await fillMaterialen(data.materialen);
+          await sleep(300);
+          if (data.kleuren && data.kleuren.length) kleurCount = await fillKleuren(data.kleuren);
+        }
       }
+      if (data.verzendformaat) verzendOk = await fillVerzendformaat(data.verzendformaat);
+
+      const gedaan = ['titel', 'beschrijving', 'prijs'];
+      if (categorieOk) gedaan.push('categorie');
+      if (unisekOk) gedaan.push('uniseks');
+      if (staatOk) gedaan.push('staat');
+      if (maatOk) gedaan.push('maat');
+      if (materiaalCount) gedaan.push('materiaal');
+      if (kleurCount) gedaan.push('kleur');
+      if (verzendOk) gedaan.push('verzendformaat');
+      const missend = [];
+      if (data.categorieZoekterm && !categorieOk) missend.push('categorie');
+      if (data.staat && categorieOk && !staatOk) missend.push('staat');
+      if (data.maat && categorieOk && !maatOk) missend.push('maat');
+      if (data.materialen && data.materialen.length && materiaalCount < data.materialen.length) missend.push('materiaal');
+      if (data.kleuren && data.kleuren.length && kleurCount < data.kleuren.length) missend.push('kleur');
+      if (data.verzendformaat && !verzendOk) missend.push('verzendformaat');
+
+      let msg = 'AbzVault: ' + gedaan.join(', ') + ' ingevuld. Nu nog foto\'s toevoegen';
+      if (missend.length) msg += ' — en handmatig: ' + missend.join(', ');
+      msg += '.';
+      showToast(msg);
+    } catch (err) {
+      console.error('AbzVault autofill fout:', err);
+      showToast('AbzVault: er ging iets mis (' + err.message + '). Rest handmatig invullen.');
     }
-    if (data.verzendformaat) verzendOk = await fillVerzendformaat(data.verzendformaat);
-
-    const gedaan = ['titel', 'beschrijving', 'prijs'];
-    if (categorieOk) gedaan.push('categorie');
-    if (unisekOk) gedaan.push('uniseks');
-    if (staatOk) gedaan.push('staat');
-    if (materiaalCount) gedaan.push('materiaal');
-    if (kleurCount) gedaan.push('kleur');
-    if (verzendOk) gedaan.push('verzendformaat');
-    const missend = [];
-    if (data.categorieZoekterm && !categorieOk) missend.push('categorie');
-    if (data.staat && categorieOk && !staatOk) missend.push('staat');
-    if (data.materialen && data.materialen.length && materiaalCount < data.materialen.length) missend.push('materiaal');
-    if (data.kleuren && data.kleuren.length && kleurCount < data.kleuren.length) missend.push('kleur');
-    if (data.verzendformaat && !verzendOk) missend.push('verzendformaat');
-
-    let msg = 'AbzVault: ' + gedaan.join(', ') + ' ingevuld. Nu nog foto\'s toevoegen';
-    if (missend.length) msg += ' — en handmatig: ' + missend.join(', ');
-    msg += '.';
-    showToast(msg);
   }
 
   run();

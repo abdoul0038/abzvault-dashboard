@@ -1845,6 +1845,11 @@ function defaultVintedVerzendformaat(p) {
   return (t.includes('pet') || t.includes('cap')) ? 'Middel' : 'Klein';
 }
 
+function defaultVintedMaat(p) {
+  const t = ((p.naam || '') + ' ' + (p.kenmerk || '')).toLowerCase();
+  return (t.includes('pet') || t.includes('cap')) ? 'Universele maat' : '';
+}
+
 const VINTED_VERZEND_OPTIES = ['Klein', 'Middel', 'Groot'];
 
 const VINTED_STAAT_OPTIES = ['Nieuw met prijskaartje', 'Nieuw zonder prijskaartje', 'Heel goed', 'Goed', 'Veelgebruikt'];
@@ -1870,6 +1875,7 @@ function renderListingCards() {
     if (p.vintedKleuren === undefined) p.vintedKleuren = defaultVintedKleuren(p);
     if (p.vintedVerzendformaat === undefined) p.vintedVerzendformaat = defaultVintedVerzendformaat(p);
     if (p.vintedUniseks === undefined) p.vintedUniseks = true;
+    if (p.vintedMaat === undefined) p.vintedMaat = defaultVintedMaat(p);
 
     const card = document.createElement('div');
     card.className = 'out-box';
@@ -1912,6 +1918,10 @@ function renderListingCards() {
             ${VINTED_VERZEND_OPTIES.map(o => `<option value="${o}" ${p.vintedVerzendformaat === o ? 'selected' : ''}>${o}</option>`).join('')}
           </select>
         </div>
+        <div style="flex:1; min-width:140px;">
+          <p class="lbl">Maat (leeg = geen maatveld)</p>
+          <input data-id="${p.id}" data-field="vintedMaat" value="${(p.vintedMaat || '').replace(/"/g, '&quot;')}" placeholder="bv. Universele maat" style="width:100%;" />
+        </div>
         <div style="flex:0 0 auto; display:flex; align-items:center; gap:6px; padding-top:22px;">
           <input type="checkbox" data-id="${p.id}" data-field="vintedUniseks" data-checkbox="1" id="uniseks-${p.id}" ${p.vintedUniseks ? 'checked' : ''} style="width:auto;" />
           <label for="uniseks-${p.id}" class="lbl" style="margin:0;">Uniseks</label>
@@ -1937,7 +1947,8 @@ function postNaarVinted(id) {
     materialen: (p.vintedMaterialen || '').split(',').map(s => s.trim()).filter(Boolean),
     kleuren: (p.vintedKleuren || '').split(',').map(s => s.trim()).filter(Boolean),
     verzendformaat: p.vintedVerzendformaat,
-    uniseks: !!p.vintedUniseks
+    uniseks: !!p.vintedUniseks,
+    maat: p.vintedMaat || ''
   };
   const encoded = encodeURIComponent(JSON.stringify(payload));
   window.open('https://www.vinted.nl/items/new#abzvault=' + encoded, '_blank');
