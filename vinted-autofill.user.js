@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AbzVault → Vinted autofill
 // @namespace    abzvault
-// @version      1.5
+// @version      1.6
 // @description  Vult een nieuwe Vinted-advertentie automatisch in met data uit AbzVault.
 // @match        https://www.vinted.nl/items/new*
 // @run-at       document-idle
@@ -70,6 +70,17 @@
       await sleep(25);
     }
     el.dispatchEvent(new Event('blur', { bubbles: true }));
+  }
+
+  // The price field re-formats itself (e.g. "1" -> "€ 1,00") after every keystroke,
+  // which moves the cursor out from under any char-by-char typing approach and
+  // corrupts the value into "€ NaN". A single atomic execCommand insertText (using
+  // a "." decimal separator, which is what its parser actually expects) sidesteps
+  // that entirely - confirmed against live Vinted, this is the only reliable method.
+  function setPriceValue(el, prijs) {
+    el.focus();
+    document.execCommand('selectAll', false, null);
+    document.execCommand('insertText', false, String(prijs));
   }
 
   // Vinted's radio/checkbox rows are custom-styled: walk up from the native
@@ -239,7 +250,12 @@
 
       if (title && data.titel) setNativeValue(title, data.titel);
       if (description && data.beschrijving) setNativeValue(description, data.beschrijving);
-      if (price && data.prijs != null) await typeInto(price, String(data.prijs).replace('.', ','));
+      let prijsOk = false;
+      if (price && data.prijs != null) {
+        setPriceValue(price, data.prijs);
+        await sleep(300);
+        prijsOk = !/nan/i.test(price.value);
+      }
 
       let categorieOk = false;
       let staatOk = false;
@@ -263,7 +279,8 @@
       }
       if (data.verzendformaat) verzendOk = await fillVerzendformaat(data.verzendformaat);
 
-      const gedaan = ['titel', 'beschrijving', 'prijs'];
+      const gedaan = ['titel', 'beschrijving'];
+      if (prijsOk) gedaan.push('prijs');
       if (categorieOk) gedaan.push('categorie');
       if (unisekOk) gedaan.push('uniseks');
       if (staatOk) gedaan.push('staat');
@@ -272,6 +289,7 @@
       if (kleurCount) gedaan.push('kleur');
       if (verzendOk) gedaan.push('verzendformaat');
       const missend = [];
+      if (data.prijs != null && !prijsOk) missend.push('prijs');
       if (data.categorieZoekterm && !categorieOk) missend.push('categorie');
       if (data.staat && categorieOk && !staatOk) missend.push('staat');
       if (data.maat && categorieOk && !maatOk) missend.push('maat');
