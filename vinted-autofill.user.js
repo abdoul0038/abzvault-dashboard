@@ -40,17 +40,22 @@
     });
   }
 
+  function nativeValueSetter(el) {
+    const proto = el.tagName === 'TEXTAREA'
+      ? window.HTMLTextAreaElement.prototype
+      : window.HTMLInputElement.prototype;
+    return Object.getOwnPropertyDescriptor(proto, 'value').set;
+  }
+
   function setNativeValue(el, value) {
-    const proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+    const setter = nativeValueSetter(el);
     setter.call(el, value);
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   function typeChar(el, char) {
-    const proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+    const setter = nativeValueSetter(el);
     el.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }));
     setter.call(el, el.value + char);
     el.dispatchEvent(new InputEvent('input', { bubbles: true, data: char, inputType: 'insertText' }));
@@ -144,7 +149,18 @@
   function showToast(msg) {
     const el = document.createElement('div');
     el.textContent = msg;
-    el.style.cssText = 'position:fixed;bottom:20px;right:20px;max-width:320px;background:#1a1a1a;color:#f2ede4;padding:12px 16px;border-radius:10px;z-index:999999;font:14px/1.4 sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);border:1px solid #c9a24b;';
+    el.style.position = 'fixed';
+    el.style.bottom = '20px';
+    el.style.right = '20px';
+    el.style.maxWidth = '320px';
+    el.style.background = '#1a1a1a';
+    el.style.color = '#f2ede4';
+    el.style.padding = '12px 16px';
+    el.style.borderRadius = '10px';
+    el.style.zIndex = '999999';
+    el.style.font = '14px/1.4 sans-serif';
+    el.style.boxShadow = '0 6px 20px rgba(0,0,0,.35)';
+    el.style.border = '1px solid #c9a24b';
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 6000);
   }
