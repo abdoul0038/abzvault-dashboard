@@ -1810,6 +1810,14 @@ Snelle verzending, netjes verpakt.
 Vragen? Stuur gerust een bericht.`;
 }
 
+function defaultVintedCategorie(p) {
+  const naam = ((p.naam || '') + ' ' + (p.kenmerk || '')).toLowerCase();
+  if (naam.includes('pet') || naam.includes('cap')) return { zoekterm: 'Pet', pad: 'Accessoires' };
+  return { zoekterm: 'Kettingen', pad: 'Sieraden' };
+}
+
+const VINTED_STAAT_OPTIES = ['Nieuw met prijskaartje', 'Nieuw zonder prijskaartje', 'Heel goed', 'Goed', 'Veelgebruikt'];
+
 function renderListingCards() {
   const wrap = document.getElementById('listing-cards');
   if (!wrap) return;
@@ -1821,6 +1829,12 @@ function renderListingCards() {
   products.forEach(p => {
     if (p.titel === undefined) p.titel = defaultTitel(p);
     if (p.beschrijving === undefined) p.beschrijving = defaultBeschrijving(p);
+    if (p.vintedCategorieZoekterm === undefined) {
+      const cat = defaultVintedCategorie(p);
+      p.vintedCategorieZoekterm = cat.zoekterm;
+      p.vintedCategoriePad = cat.pad;
+    }
+    if (p.vintedStaat === undefined) p.vintedStaat = 'Nieuw zonder prijskaartje';
 
     const card = document.createElement('div');
     card.className = 'out-box';
@@ -1834,13 +1848,46 @@ function renderListingCards() {
       <textarea data-id="${p.id}" data-field="beschrijving" rows="7" style="width:100%; margin-bottom:6px;">${p.beschrijving}</textarea>
       <button class="secondary copy-field" data-id="${p.id}" data-field="beschrijving">Kopieer beschrijving</button>
       <span class="note copied-msg" data-id="${p.id}" style="margin-left:10px;"></span>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,.08);">
+        <div style="flex:1; min-width:130px;">
+          <p class="lbl">Vinted-categorie (zoekterm)</p>
+          <input data-id="${p.id}" data-field="vintedCategorieZoekterm" value="${p.vintedCategorieZoekterm.replace(/"/g, '&quot;')}" placeholder="bv. Kettingen" style="width:100%;" />
+        </div>
+        <div style="flex:1; min-width:130px;">
+          <p class="lbl">...pad moet bevatten</p>
+          <input data-id="${p.id}" data-field="vintedCategoriePad" value="${(p.vintedCategoriePad || '').replace(/"/g, '&quot;')}" placeholder="bv. Sieraden" style="width:100%;" />
+        </div>
+        <div style="flex:1; min-width:160px;">
+          <p class="lbl">Staat</p>
+          <select data-id="${p.id}" data-field="vintedStaat" style="width:100%;">
+            ${VINTED_STAAT_OPTIES.map(o => `<option value="${o}" ${p.vintedStaat === o ? 'selected' : ''}>${o}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <button class="secondary" onclick="postNaarVinted('${p.id}')" style="margin-top:12px;">Zet op Vinted</button>
+      <p class="note" style="margin-top:6px;">Vult titel, beschrijving, prijs, categorie en staat automatisch in op een nieuwe Vinted-advertentie. Foto's en controle blijven handmatig. Vereist het AbzVault-userscript in Tampermonkey.</p>
     `;
     wrap.appendChild(card);
   });
 }
 
+function postNaarVinted(id) {
+  const p = products.find(pp => pp.id === id);
+  if (!p) return;
+  const payload = {
+    titel: p.titel,
+    beschrijving: p.beschrijving,
+    prijs: p.verkoop,
+    categorieZoekterm: p.vintedCategorieZoekterm,
+    categoriePad: p.vintedCategoriePad,
+    staat: p.vintedStaat
+  };
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  window.open('https://www.vinted.nl/items/new#abzvault=' + encoded, '_blank');
+}
+
 document.addEventListener('input', function(e) {
-  if (e.target && e.target.dataset && e.target.dataset.field && e.target.tagName === 'TEXTAREA' && !e.target.dataset.tpl) {
+  if (e.target && e.target.dataset && e.target.dataset.field && ['TEXTAREA', 'INPUT', 'SELECT'].includes(e.target.tagName) && !e.target.dataset.tpl) {
     const p = products.find(pp => pp.id === e.target.dataset.id);
     if (p) { p[e.target.dataset.field] = e.target.value; saveProducts(); }
   }
